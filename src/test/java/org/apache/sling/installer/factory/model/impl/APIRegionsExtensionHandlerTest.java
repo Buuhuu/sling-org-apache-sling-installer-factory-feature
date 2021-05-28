@@ -18,11 +18,8 @@
  */
 package org.apache.sling.installer.factory.model.impl;
 
-import org.apache.sling.feature.ArtifactId;
-import org.apache.sling.feature.Extension;
-import org.apache.sling.feature.ExtensionState;
-import org.apache.sling.feature.ExtensionType;
-import org.apache.sling.feature.Feature;
+import org.apache.sling.feature.*;
+import org.apache.sling.feature.builder.ArtifactProvider;
 import org.apache.sling.feature.spi.context.ExtensionHandlerContext;
 import org.junit.Test;
 import org.mockito.Mockito;
@@ -44,20 +41,28 @@ public class APIRegionsExtensionHandlerTest {
     @Test
     public void testHandle() throws Exception {
         APIRegionsExtensionHandler areh = new APIRegionsExtensionHandler();
+        ArtifactId bundleId = ArtifactId.fromMvnId("my:my-bundle:1.0.0");
 
+        ArtifactProvider artifactProvider = Mockito.mock(ArtifactProvider.class);
+        Mockito.when(artifactProvider.provide(bundleId)).thenReturn(getClass().getResource("/test1/test1.jar"));
         ExtensionHandlerContext ctx = Mockito.mock(ExtensionHandlerContext.class);
+        Mockito.when(ctx.getArtifactProvider()).thenReturn(artifactProvider);
 
         Extension ext = new Extension(ExtensionType.JSON, "api-regions", ExtensionState.REQUIRED);
         ext.setJSON(FEATURE_EXT_1);
 
         Feature feat = new Feature(ArtifactId.fromMvnId("x:y:8"));
+        feat.getBundles().add(new Artifact(bundleId));
+
         assertTrue(areh.handle(ctx, ext, feat));
 
         Mockito.verify(ctx).addConfiguration(Mockito.isNull(),
             Mockito.eq("org.apache.sling.feature.apiregions.factory~y_8.jar"),
             Mockito.argThat(p -> {
                 String[] pkgs = (String[]) p.get("mapping.region.packages");
-                return Arrays.deepEquals(new String [] {"my-region=org.foo.bar,la.di.da"}, pkgs);
+                String[] bundleFeatures = (String[]) p.get("mapping.bundleid.features");
+                return Arrays.deepEquals(new String [] {"my-region=org.foo.bar,la.di.da"}, pkgs)
+                    && Arrays.deepEquals(new String[] {"my:my-bundle:1.0.0="}, bundleFeatures );
             }));
     }
 
